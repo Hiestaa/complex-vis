@@ -325,7 +325,7 @@ class MovableMarker {
 
 class Iterator {
     constructor(tctx, markers) {
-        this.MAX_ITER = 10;  // maximum number of iteration
+        this.MAX_ITER = 50;  // maximum number of iteration
         this.MAX_ITER_DIST_FROM_0 = 0.01;  // stop iterations if the value is close to the 0 than this amount on any dimension
         this.ITER_RADIUS = 3;
 
@@ -337,7 +337,11 @@ class Iterator {
     }
 
     iter(complexes) {
-        return complexes[0].multiply(complexes[0]);
+        let res = complexes[0].multiply(complexes[0]);
+        if (complexes.length > 1) {
+            res = res.add(complexes[1]);
+        }
+        return res;
     }
 
     render() {
@@ -378,11 +382,11 @@ const tctx = new TranslatingContext(canvas, 3, 3, 0.1);
 evLoop.registerCoordinateTransform(tctx.inverseTransform.bind(tctx));
 
 const marker1 = new MovableMarker(tctx, 0.1, 0.2, 'A', 'red');
-const marker2 = new MovableMarker(tctx, 2, 5, 'B', 'green');
+const marker2 = new MovableMarker(tctx, 0, 0, 'B', 'green');
 const iterator = new Iterator(tctx, [marker1, marker2]);
 // const marker3 = new MovableMarker(tctx, -2, 5, 'test 4', 'lightblue');
 
 evLoop.registerComponent(marker1);
-// evLoop.registerComponent(marker2);
+evLoop.registerComponent(marker2);
 evLoop.registerComponent(iterator);
 evLoop.registerComponent(tctx);
