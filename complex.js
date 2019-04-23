@@ -175,6 +175,10 @@ class TranslatingContext {
     }
 
     ellipse(x, y, radiusX, radiusY, startAngle, endAngle, anticlockwise) {
+        if (!(this._toCanvasX(x) > 0 && this._toCanvasX(x) < this.canvasWidth &&
+              this._toCanvasY(y) > 9 && this._toCanvasY(y) < this.canvasHeight)) {
+            return;
+        }
         return this.ctx.ellipse(
             this._toCanvasX(x),
             this._toCanvasY(y),
@@ -187,6 +191,10 @@ class TranslatingContext {
     }
 
     arc(x, y, radius, startAngle, endAngle, anticlockwise) {
+        if (!(this._toCanvasX(x) > 0 && this._toCanvasX(x) < this.canvasWidth &&
+            this._toCanvasY(y) > 9 && this._toCanvasY(y) < this.canvasHeight)) {
+            return;
+        }
         return this.ctx.arc(
             this._toCanvasX(x),
             this._toCanvasY(y),
@@ -259,12 +267,8 @@ class TranslatingContext {
 }
 
 class MovableMarker {
-    RADIUS = 5;
-    // FIXME: if the radius is in px as it is now, we can't reliably know whether a given click happens
-    // inside a marker or not since both the mouse position and the marker position are in the grid coordinates
-    // Also keep in mind the X and Y unit don't have the same size in px.
-
     constructor(tctx, x, y, name, color) {
+        this.RADIUS = 5;
         this.initialPosX = x;
         this.initialPosY = y;
         this.x = x;
@@ -320,11 +324,11 @@ class MovableMarker {
 }
 
 class Iterator {
-    MAX_ITER = 10;  // maximum number of iteration
-    MAX_ITER_DIST_FROM_0 = 0.01;  // stop iterations if the value is close to the 0 than this amount on any dimension
-    ITER_RADIUS = 3;
-
     constructor(tctx, markers) {
+        this.MAX_ITER = 10;  // maximum number of iteration
+        this.MAX_ITER_DIST_FROM_0 = 0.01;  // stop iterations if the value is close to the 0 than this amount on any dimension
+        this.ITER_RADIUS = 3;
+
         this.tctx = tctx;
         this.markers = markers;
         if (this.markers.length === 0) {
