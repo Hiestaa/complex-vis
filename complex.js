@@ -507,7 +507,7 @@ class Painter {
         for (let color = 0; color < this.ITER_COLORS.length; color++) {
             let prev = complexes[0];
             complexes[0] = this.iterator.iter(complexes);
-            if (Math.abs(complexes[0].i) > 1.0 && Math.abs(complexes[0].r) > 1.0 ||
+            if (Math.abs(complexes[0].i) > this.tctx.height * 20 && Math.abs(complexes[0].r) > this.tctx.width * 20 ||
                 Math.abs(complexes[0].i - prev.i) < 0.01 && Math.abs(complexes[0].r - prev.r) < 0.01) {
                 return this.ITER_COLORS[Math.ceil(color)];
             }
@@ -516,12 +516,12 @@ class Painter {
     }
 }
 
-const tctx = new TranslatingContext(canvas, 2.0, 2.0, 0.2);
+const tctx = new TranslatingContext(canvas, 3.0, 3.0, 0.2);
 
 evLoop.registerCoordinateTransform(tctx.inverseTransform.bind(tctx));
 
 const marker1 = new MovableMarker(tctx, 0.1, 0.2, 'A', 'red');
-const marker2 = new MovableMarker(tctx, -0.3, -0.5, 'B', 'green');
+const marker2 = new MovableMarker(tctx, -0.50, -0.60, 'B', 'green');
 const iterator = new Iterator(tctx, [marker1, marker2]);
 const painter = new Painter(canvas, iterator, tctx);
 
