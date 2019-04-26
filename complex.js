@@ -19,6 +19,9 @@ class EventsLoop {
         document.getElementById('iterations').addEventListener('input', this._onControlEvent.bind(this));
         document.getElementById('iterations-radius').addEventListener('input', this._onControlEvent.bind(this));
         document.getElementById('iterations-line-width').addEventListener('input', this._onControlEvent.bind(this));
+        document.getElementById('painter-marker-variable').addEventListener('change', this._onControlEvent.bind(this));
+
+        setInterval(this.redraw.bind(this), 100)
     }
 
     /**
@@ -293,6 +296,8 @@ class MovableMarker {
         evLoop.registerMouseDownEvent(this._onMouseDown.bind(this));
         evLoop.registerMouseUpEvent(this._onMouseUp.bind(this));
         evLoop.registerMouseMoveEvent(this._onMouseMove.bind(this));
+
+        this.onChange = [];
     }
 
     render() {
@@ -311,6 +316,10 @@ class MovableMarker {
         this.tctx.fillText(this.name, this.x, this.y, - nameText.width / 2, - TEXT_HEIGHT_PX * 1.2)
     }
 
+    registerUpdate(fn) {
+        this.onChange.push(fn);
+    }
+
     _onMouseDown(x, y, e, realX, realY) {
         const myPos = this.tctx.transform({x: this.x, y: this.y});
         if (Math.pow(myPos.x + this.RADIUS - realX, 2) + Math.pow(myPos.y + this.RADIUS - realY, 2) < Math.pow(this.RADIUS * 4, 2)) {
@@ -319,6 +328,11 @@ class MovableMarker {
     }
 
     _onMouseUp() {
+        if (this.selected) {
+            for (const handler of this.onChange) {
+                handler(this);
+            }
+        }
         this.selected = false;
     }
 
@@ -353,6 +367,12 @@ class Iterator {
             res = res.add(complexes[1]);
         }
         return res;
+    }
+
+    registerMarkerUpdate(fn) {
+        for (const marker of this.markers) {
+            marker.registerUpdate(fn);
+        }
     }
 
     render() {
@@ -404,15 +424,109 @@ class Complex {
     }
 }
 
-const tctx = new TranslatingContext(canvas, 1.6, 1.6, 0.1);
+class Painter {
+    constructor(canvas, iterator, tctx) {
+        this.imageData = new ImageData(canvas.width, canvas.height);
+        this.resetImage();
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.iterator = iterator;
+        this.iterator.registerMarkerUpdate(this.resetImage.bind(this));
+        this.tctx = tctx;
+        this.currentPixel = { x: -1, y: 0 };
+
+        this.variableMarker = document.getElementById('painter-marker-variable').value;
+        document.getElementById('painter-marker-variable').addEventListener('change', this.resetImage.bind(this));
+        this.ITER_COLORS = [
+            // [2, 155, 112], [15, 152, 119], [27, 149, 125], [40, 147, 132], [52, 144, 138], [65, 141, 145], [78, 139, 151], [90, 136, 158], [103, 133, 164],
+            // [8, 0, 219], [19, 0, 218], [30, 0, 217], [41, 0, 217], [52, 0, 216], [63, 0, 216], [74, 0, 215], [85, 0, 214], [96, 0, 214], [107, 0, 213], [119, 0, 213], [130, 0, 212], [141, 0, 212], [152, 0, 211], [163, 0, 210], [174, 0, 210], [185, 0, 209], [196, 0, 209], [207, 0, 208], [219, 0, 208], [8, 0, 219], [19, 0, 219], [31, 0, 219], [43, 0, 219], [54, 0, 219], [66, 0, 219], [78, 0, 219], [89, 0, 219], [101, 0, 219], [113, 0, 219], [124, 0, 219], [136, 0, 219], [148, 0, 219], [159, 0, 219], [171, 0, 219], [183, 0, 219], [194, 0, 219], [206, 0, 219], [218, 0, 219], [219, 0, 207], [7, 0, 219], [0, 49, 219], [0, 106, 219], [0, 164, 219], [219, 79, 0], [219, 21, 0], [219, 0, 35], [219, 0, 93], [219, 0, 150], [219, 0, 207],
+            // [8, 0, 219], [15, 2, 211], [22, 5, 203], [29, 7, 196], [37, 10, 188], [44, 12, 181], [51, 15, 173], [58, 17, 166], [66, 20, 158], [73, 22, 151], [80, 25, 143], [88, 28, 135], [95, 30, 128], [102, 33, 120], [109, 35, 113], [117, 38, 105], [124, 40, 98], [131, 43, 90], [138, 45, 83], [146, 48, 75], [153, 51, 67], [160, 53, 60], [168, 56, 52], [175, 58, 45], [182, 61, 37], [189, 63, 30], [197, 66, 22], [204, 68, 15], [211, 71, 7], [219, 74, 0], [8, 0, 219], [25, 0, 219], [42, 0, 219], [60, 0, 219], [77, 0, 219], [94, 0, 219], [112, 0, 219], [129, 0, 219], [147, 0, 219], [164, 0, 219], [181, 0, 219], [199, 0, 219], [216, 0, 219], [219, 0, 204], [219, 0, 186], [219, 0, 169], [219, 0, 151], [219, 0, 134], [219, 0, 117], [219, 0, 99], [219, 0, 82], [219, 0, 65], [219, 0, 47], [219, 0, 30], [219, 0, 12], [219, 4, 0], [219, 21, 0], [219, 39, 0], [219, 56, 0], [219, 73, 0], [7, 0, 219], [0, 19, 219], [0, 47, 219], [0, 75, 219]
+            [0, 73, 229], [3, 71, 228], [6, 70, 227], [10, 69, 227], [13, 68, 226], [17, 67, 225], [20, 66, 225], [24, 64, 224], [27, 63, 223], [31, 62, 223], [34, 61, 222], [38, 60, 222], [41, 59, 221], [45, 57, 220], [48, 56, 220], [52, 55, 219], [55, 54, 218], [59, 53, 218], [62, 52, 217], [66, 50, 216], [69, 49, 216], [73, 48, 215], [76, 47, 215], [79, 46, 214], [83, 45, 213], [86, 44, 213], [90, 42, 212], [93, 41, 211], [97, 40, 211], [100, 39, 210], [104, 38, 209], [107, 37, 209], [111, 35, 208], [114, 34, 208], [118, 33, 207], [121, 32, 206], [125, 31, 206], [128, 30, 205], [132, 28, 204], [135, 27, 204], [139, 26, 203], [142, 25, 202], [146, 24, 202], [149, 23, 201], [152, 22, 201], [156, 20, 200], [159, 19, 199], [163, 18, 199], [166, 17, 198], [170, 16, 197], [173, 15, 197], [177, 13, 196], [180, 12, 195], [184, 11, 195], [187, 10, 194], [191, 9, 194], [194, 8, 193], [198, 6, 192], [201, 5, 192], [205, 4, 191], [208, 3, 190], [212, 2, 190], [215, 1, 189], [219, 0, 189],
+            // [219, 0, 189], [219, 3, 186], [219, 6, 183], [219, 9, 180], [219, 13, 177], [219, 16, 174], [219, 19, 171], [219, 22, 168], [219, 26, 165], [219, 29, 162], [219, 32, 159], [219, 35, 156], [219, 39, 153], [219, 42, 150], [219, 45, 147], [219, 48, 144], [219, 52, 141], [219, 55, 138], [219, 58, 135], [219, 61, 132], [219, 65, 129], [219, 68, 126], [219, 71, 123], [219, 74, 120], [219, 78, 117], [219, 81, 114], [219, 84, 111], [219, 0, 188], [219, 0, 182], [219, 0, 176], [219, 0, 170], [219, 0, 163], [219, 0, 157], [219, 0, 151], [219, 0, 145], [219, 0, 138], [219, 0, 132], [219, 0, 126], [219, 0, 120], [219, 0, 113], [219, 0, 107], [219, 0, 101], [219, 0, 95], [219, 0, 88], [219, 0, 82], [219, 0, 76], [219, 0, 70], [219, 0, 63], [219, 0, 57], [219, 0, 51], [219, 0, 45], [219, 0, 38], [219, 0, 32], [219, 0, 26], [219, 0, 20], [219, 0, 13], [219, 0, 7], [219, 0, 1], [219, 4, 0], [219, 11, 0], [219, 17, 0], [219, 23, 0], [219, 29, 0], [219, 36, 0],
+            // [219, 92, 0], [219, 76, 0], [219, 60, 0], [219, 44, 0], [219, 28, 0], [219, 12, 0], [219, 0, 3], [219, 0, 19], [219, 0, 35], [219, 0, 51], [219, 0, 67], [219, 0, 83], [219, 0, 99], [219, 0, 115], [219, 0, 131], [219, 0, 147], [219, 0, 163], [219, 0, 179], [219, 0, 195], [219, 0, 211], [210, 0, 219], [194, 0, 219], [178, 0, 219], [162, 0, 219], [146, 0, 219], [129, 0, 219], [113, 0, 219], [97, 0, 219], [81, 0, 219], [65, 0, 219], [49, 0, 219], [33, 0, 219], [17, 0, 219], [1, 0, 219], [0, 14, 219], [0, 30, 219], [0, 46, 219], [0, 62, 219], [0, 78, 219], [0, 94, 219], [0, 110, 219], [0, 126, 219], [0, 142, 219], [0, 158, 219], [0, 174, 219]
+        ];
+        this.PIXEL_BATCH = 100000;
+        this.PIXEL_BATCH_INTERVAL = 10;
+        setInterval(this.computeBatchPixels.bind(this), this.PIXEL_BATCH_INTERVAL);
+    }
+
+    resetImage(updatedMarker) {
+        if (updatedMarker && updatedMarker.name === this.variableMarker) {
+            return;
+        }
+        for (let i = 0; i < this.imageData.data.length; i += 4) {
+            // Modify pixel data
+            this.imageData.data[i + 0] = 255;  // R value
+            this.imageData.data[i + 1] = 255;    // G value
+            this.imageData.data[i + 2] = 255;  // B value
+            this.imageData.data[i + 3] = 255;  // A value
+        }
+        this.currentPixel = { x: -1, y: 0 };
+    }
+
+    computeBatchPixels() {
+        const start = Date.now();
+        for (let index = 0; index < this.PIXEL_BATCH; index++) {
+            if (Date.now() - start > this.PIXEL_BATCH_INTERVAL) { return; }
+            this.computeNextPixel();
+        }
+    }
+
+    computeNextPixel() {
+        this.currentPixel.x += 1;
+        if (this.currentPixel.x > this.imageData.width && this.currentPixel.y < this.imageData.height) {
+            this.currentPixel.x = 0;
+            this.currentPixel.y += 1;
+        }
+        if (this.currentPixel.y >= this.imageData.height) {
+            return;
+        }
+
+        const i = this.currentPixel.x + this.currentPixel.y * this.imageData.width;
+        const color = this._getPixelColor(this.currentPixel);
+        this.imageData.data[i * 4 + 0] = color[0]
+        this.imageData.data[i * 4 + 1] = color[1]
+        this.imageData.data[i * 4 + 2] = color[2]
+        this.imageData.data[i * 4 + 3] = 250;
+    }
+
+    render() {
+        this.variableMarker = document.getElementById('painter-marker-variable').value;
+        this.ctx.putImageData(this.imageData, 0, 0);
+    }
+
+    _getPixelColor(pixel) {
+        const self = this;
+        const complexes = this.iterator.markers.map(function (m) {
+            if (m.name == self.variableMarker) {
+                const itPixel = self.tctx.inverseTransform(pixel)
+                return new Complex(itPixel.x, itPixel.y);
+            }
+            return new Complex(m.x, m.y);
+        })
+        for (let color = 0; color < this.ITER_COLORS.length; color++) {
+            let prev = complexes[0];
+            complexes[0] = this.iterator.iter(complexes);
+            if (Math.abs(complexes[0].i) > 1.0 && Math.abs(complexes[0].r) > 1.0 ||
+                Math.abs(complexes[0].i - prev.i) < 0.01 && Math.abs(complexes[0].r - prev.r) < 0.01) {
+                return this.ITER_COLORS[Math.ceil(color)];
+            }
+        }
+        return this.ITER_COLORS[this.ITER_COLORS.length - 1];
+    }
+}
+
+const tctx = new TranslatingContext(canvas, 2.0, 2.0, 0.2);
 
 evLoop.registerCoordinateTransform(tctx.inverseTransform.bind(tctx));
 
 const marker1 = new MovableMarker(tctx, 0.1, 0.2, 'A', 'red');
-const marker2 = new MovableMarker(tctx, 0, 0, 'B', 'green');
+const marker2 = new MovableMarker(tctx, -0.3, -0.5, 'B', 'green');
 const iterator = new Iterator(tctx, [marker1, marker2]);
-// const marker3 = new MovableMarker(tctx, -2, 5, 'test 4', 'lightblue');
+const painter = new Painter(canvas, iterator, tctx);
 
+
+evLoop.registerComponent(painter);
 evLoop.registerComponent(marker1);
 evLoop.registerComponent(marker2);
 evLoop.registerComponent(iterator);
