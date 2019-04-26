@@ -15,6 +15,10 @@ class EventsLoop {
         this._mousePos = { x: 0, y: 0 };
         this._realMousePos = { x: 0, y: 0 };
         this._coordinateTransforms = []
+
+        document.getElementById('iterations').addEventListener('input', this._onControlEvent.bind(this));
+        document.getElementById('iterations-radius').addEventListener('input', this._onControlEvent.bind(this));
+        document.getElementById('iterations-line-width').addEventListener('input', this._onControlEvent.bind(this));
     }
 
     /**
@@ -28,11 +32,14 @@ class EventsLoop {
     }
 
     redraw() {
+        const start = Date.now();
         const context = this.canvas.getContext('2d');
         context.clearRect(0, 0, this.canvas.width, this.canvas.height);
         for (const component of this.components) {
             component.render();
         }
+        const duration = Date.now() - start;
+        context.fillText(duration.toString() + 'ms', 10, canvas.height - 10);
     }
 
     /**
@@ -58,6 +65,10 @@ class EventsLoop {
             }
             this.redraw();
         }
+    }
+
+    _onControlEvent() {
+        this.redraw();
     }
 
     // Get the position of the mouse relative to the canvas
@@ -325,9 +336,9 @@ class MovableMarker {
 
 class Iterator {
     constructor(tctx, markers) {
-        this.MAX_ITER = 50;  // maximum number of iteration
+        this.MAX_ITER = 1000;  // maximum number of iteration
         this.MAX_ITER_DIST_FROM_0 = 0.01;  // stop iterations if the value is close to the 0 than this amount on any dimension
-        this.ITER_RADIUS = 3;
+        this.ITER_RADIUS = 1;
 
         this.tctx = tctx;
         this.markers = markers;
@@ -345,19 +356,35 @@ class Iterator {
     }
 
     render() {
+        this.MAX_ITER = parseInt(document.getElementById('iterations').value, 10);
+        this.ITER_RADIUS = parseInt(document.getElementById('iterations-radius').value, 10);
+        this.ITER_LINE_WIDTH = parseInt(document.getElementById('iterations-line-width').value, 10);
+        document.getElementById('iterations-value').textContent = this.MAX_ITER;
+        document.getElementById('iterations-radius-value').textContent = this.ITER_RADIUS;
+        document.getElementById('iterations-line-width-value').textContent = this.ITER_LINE_WIDTH;
+
         const complexes = this.markers.map(m => new Complex(m.x, m.y));
         this.tctx.moveTo(complexes[0].r, complexes[0].i);
         for (let index = 0; index < this.MAX_ITER; index++) {
             complexes[0] = this.iter(complexes);
-            this.tctx.lineTo(complexes[0].r, complexes[0].i);
-            this.tctx.stroke();
+            if (this.ITER_LINE_WIDTH > 0) {
+                this.tctx.set({lineWidth: this.ITER_LINE_WIDTH});
+                this.tctx.lineTo(complexes[0].r, complexes[0].i);
+                this.tctx.stroke();
+                this.tctx.set({lineWidth: 1});
+            }
+            else {
+                this.tctx.moveTo(complexes[0].r, complexes[0].i);
+            }
             this.tctx.circle(complexes[0].r, complexes[0].i, this.ITER_RADIUS, 'lightgrey');
+            this.tctx.stroke();
             if (Math.abs(complexes[0].r) < this.MAX_ITER_DIST_FROM_0 && Math.abs(complexes[0].i) < this.MAX_ITER_DIST_FROM_0) {
                 break;
             }
         }
     }
 }
+
 
 class Complex {
     constructor(r, i) {
@@ -377,7 +404,7 @@ class Complex {
     }
 }
 
-const tctx = new TranslatingContext(canvas, 3, 3, 0.1);
+const tctx = new TranslatingContext(canvas, 1.6, 1.6, 0.1);
 
 evLoop.registerCoordinateTransform(tctx.inverseTransform.bind(tctx));
 
