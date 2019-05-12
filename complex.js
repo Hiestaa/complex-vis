@@ -492,6 +492,9 @@ class Painter {
 
     render() {
         this.variableMarker = document.getElementById('painter-marker-variable').value;
+        if (this.variableMarker === 'null') {
+            return;
+        }
         this.ctx.putImageData(this.imageData, 0, 0);
     }
 
