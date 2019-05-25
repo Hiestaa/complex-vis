@@ -106,8 +106,20 @@ class TranslatingContext {
         this.canvasWidth = canvas.width;
         this.canvasHeight = canvas.height;
         this.curMousePos = {x: 0, y: 0};
+        this.onZoom = [];
 
         evLoop.registerMouseMoveEvent(this._onMouseMove.bind(this));
+    }
+
+    zoom(x, y, pc) {
+        this.width -= pc / 100 * this.width;
+        this.height -= pc / 100 * this.height;
+        this.onZoom.forEach(fn => fn());
+        evLoop.redraw();
+    }
+
+    registerZoomUpdate(fn) {
+        this.onZoom.push(fn);
     }
 
     render() {
@@ -433,6 +445,7 @@ class Painter {
         this.iterator = iterator;
         this.iterator.registerMarkerUpdate(this.resetImage.bind(this));
         this.tctx = tctx;
+        this.tctx.registerZoomUpdate(this.resetImage.bind(this));
         this.currentPixel = { x: -1, y: 0 };
 
         this.variableMarker = document.getElementById('painter-marker-variable').value;
@@ -484,6 +497,10 @@ class Painter {
 
         const i = this.currentPixel.x + this.currentPixel.y * this.imageData.width;
         const color = this._getPixelColor(this.currentPixel);
+        if (!color) {
+            debugger;
+            const color2 = this._getPixelColor(this.currentPixel);
+        }
         this.imageData.data[i * 4 + 0] = color[0]
         this.imageData.data[i * 4 + 1] = color[1]
         this.imageData.data[i * 4 + 2] = color[2]
@@ -500,6 +517,7 @@ class Painter {
 
     _getPixelColor(pixel) {
         const self = this;
+        const MAX_ITER = 200;
         const complexes = this.iterator.markers.map(function (m) {
             if (m.name == self.variableMarker) {
                 const itPixel = self.tctx.inverseTransform(pixel)
@@ -507,13 +525,14 @@ class Painter {
             }
             return new Complex(m.x, m.y);
         })
-        for (let color = 0; color < this.ITER_COLORS.length; color++) {
+        for (let color = 0; color < MAX_ITER; color++) {
             let prev = complexes[0];
             complexes[0] = this.iterator.iter(complexes);
             if (Math.abs(complexes[0].i) > this.tctx.height * 20 && Math.abs(complexes[0].r) > this.tctx.width * 20 ||
                 Math.abs(complexes[0].i - prev.i) < 0.01 && Math.abs(complexes[0].r - prev.r) < 0.01) {
-                return this.ITER_COLORS[Math.ceil(color)];
+                return this.ITER_COLORS[Math.ceil(color / MAX_ITER * (this.ITER_COLORS.length - 1))];
             }
+
         }
         return this.ITER_COLORS[this.ITER_COLORS.length - 1];
     }
