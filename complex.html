@@ -18,7 +18,11 @@
         }
         #controls div.control {
           display: inline-block;
-          width: 22%;
+          width: 20%;
+        }
+        #controls div.control.zoom {
+          display: inline-block;
+          width: 10%;
         }
     </style>
   </head>
@@ -42,6 +46,10 @@
           <option value="A">A</option>
           <option value="B">B</option>
         </select>
+      </div>
+      <div class="control zoom"><label>Zoom Controls</label>
+        <button id="zoom-in">In</button>
+        <button id="zoom-out">Out</button>
       </div>
     </div>
     <canvas width="1280" height="720" id="canvas"></canvas>

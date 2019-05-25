@@ -98,18 +98,27 @@ const evLoop = new EventsLoop(canvas);
 
 class TranslatingContext {
     constructor(canvas, width, height, unit) {
+        var self = this;
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');;
         this.width = width || 10;
         this.height = height || 10;
         this.unit = unit || 1;
-        this.center = {x: 0.5, y: 0.0}
+        this.center = {x: 0.0, y: 0.0}
         this.canvasWidth = canvas.width;
         this.canvasHeight = canvas.height;
         this.curMousePos = {x: 0, y: 0};
         this.onZoom = [];
 
         evLoop.registerMouseMoveEvent(this._onMouseMove.bind(this));
+        document.addEventListener('keydown', this._onKeyPress.bind(this));
+
+        document.getElementById('zoom-out').addEventListener('click', function () {
+            self.zoom(-20);
+        });
+        document.getElementById('zoom-in').addEventListener('click', function () {
+            self.zoom(20);
+        });
     }
 
     zoom(pc) {
@@ -124,6 +133,10 @@ class TranslatingContext {
         this.center.y = y;
         this.onZoom.forEach(fn => fn());
         evLoop.redraw();
+    }
+
+    moveBy(x, y) {
+        this.move(this.center.x + x, this.center.y + y);
     }
 
     registerZoomUpdate(fn) {
@@ -294,6 +307,20 @@ class TranslatingContext {
 
     _onMouseMove(x, y) {
         this.curMousePos = {x, y};
+    }
+    _onKeyPress(e) {
+        if (e.keyCode === 37) {  // left
+            this.moveBy(-0.1 * this.width, 0)
+        }
+        if (e.keyCode === 38) {  // up
+            this.moveBy(0, 0.1 * this.height);
+        }
+        if (e.keyCode === 39) {  // right
+            this.moveBy(0.1 * this.width, 0)
+        }
+        if (e.keyCode === 40) {  // down
+            this.moveBy(0, -0.1 * this.height);
+        }
     }
 
     transform({x, y}) {
