@@ -103,6 +103,7 @@ class TranslatingContext {
         this.width = width || 10;
         this.height = height || 10;
         this.unit = unit || 1;
+        this.center = {x: 0.5, y: 0.0}
         this.canvasWidth = canvas.width;
         this.canvasHeight = canvas.height;
         this.curMousePos = {x: 0, y: 0};
@@ -111,9 +112,16 @@ class TranslatingContext {
         evLoop.registerMouseMoveEvent(this._onMouseMove.bind(this));
     }
 
-    zoom(x, y, pc) {
+    zoom(pc) {
         this.width -= pc / 100 * this.width;
         this.height -= pc / 100 * this.height;
+        this.onZoom.forEach(fn => fn());
+        evLoop.redraw();
+    }
+
+    move(x, y) {
+        this.center.x = x;
+        this.center.y = y;
         this.onZoom.forEach(fn => fn());
         evLoop.redraw();
     }
@@ -126,13 +134,13 @@ class TranslatingContext {
         // this.ctx.lineWidth = 1;
         // this.ctx.font = TEXT_HEIGHT_PX + 'px serif';
         const drawXAxis = () => {
-            this.moveTo(-this.width / 2, 0);
-            this.lineTo(this.width / 2, 0);
+            this.moveTo(-this.width / 2 + this.center.x, 0);
+            this.lineTo(this.width / 2 + this.center.x, 0);
             this.stroke();
         }
         const drawYAxis = () => {
-            this.moveTo(0, -this.height / 2);
-            this.lineTo(0, this.height / 2);
+            this.moveTo(0, -this.height / 2 + this.center.y);
+            this.lineTo(0, this.height / 2 + this.center.y);
             this.stroke();
         }
         const drawXPeg = (peg) => {
@@ -159,19 +167,19 @@ class TranslatingContext {
             }
             this.stroke();
         }
-        const drawPegs = (dim, drawFn) => {
+        const drawPegs = (dim, drawFn, center) => {
             for (let peg = 0; peg * this.unit <= dim / 2; peg += 1) {
-                drawFn(peg * this.unit);
+                drawFn(peg * this.unit + center);
             }
             for (let peg = 0; peg * this.unit >= -dim / 2; peg -= 1) {
-                drawFn(peg * this.unit);
+                drawFn(peg * this.unit + center);
             }
         }
 
         drawXAxis();
         drawYAxis();
-        drawPegs(this.width, drawXPeg);
-        drawPegs(this.height, drawYPeg);
+        drawPegs(this.width, drawXPeg, this.center.x);
+        drawPegs(this.height, drawYPeg, this.center.y);
 
         // mouse position
         this.ctx.fillText('(' + this.curMousePos.x.toString().slice(0, 5) + ', ' +
@@ -247,14 +255,23 @@ class TranslatingContext {
     stroke() { return this.ctx.stroke(); }
     fill() { return this.ctx.fill(); }
 
+    _toCanvasX(x) {
+        return this._transX(this._normX(x) - this._normX(this.center.x));
+    }
+    _toCanvasY(y) {
+        return this._transY(this._normY(y) - this._normY(this.center.y));
+    }
+    _fromCanvasX(x) {
+        return this._invNormX(this._invTransX(x)) + this.center.x
+    }
+    _fromCanvasY(y) {
+        return this._invNormY(this._invTransY(y)) + this.center.y
+    }
     _normX(x) {
         return x / this.width * this.canvasWidth;
     }
     _transX(x) {
         return x + this.canvasWidth / 2;
-    }
-    _toCanvasX(x) {
-        return this._transX(this._normX(x));
     }
     _normY(y) {
         return (y / this.height * this.canvasHeight)
@@ -262,15 +279,17 @@ class TranslatingContext {
     _transY(y) {
         return - y + this.canvasHeight / 2;
     }
-    _toCanvasY(y) {
-        return this._transY(this._normY(y));
+    _invTransX(x) {
+        return x - this.canvasWidth / 2;
     }
-    _fromCanvasX(x) {
-        return (x - this.canvasWidth / 2) * this.width / this.canvasWidth;
+    _invNormX(x) {
+        return x * this.width / this.canvasWidth
     }
-
-    _fromCanvasY(y) {
-        return (y - this.canvasHeight / 2) * -this.height / this.canvasHeight;
+    _invTransY(y) {
+        return y - this.canvasHeight / 2;
+    }
+    _invNormY(y) {
+        return y * -this.height / this.canvasHeight
     }
 
     _onMouseMove(x, y) {
@@ -538,7 +557,7 @@ class Painter {
     }
 }
 
-const tctx = new TranslatingContext(canvas, 3.0, 3.0, 0.2);
+const tctx = new TranslatingContext(canvas, 2.0, 2.0, 0.1);
 
 evLoop.registerCoordinateTransform(tctx.inverseTransform.bind(tctx));
 
